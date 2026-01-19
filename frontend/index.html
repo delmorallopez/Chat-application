@@ -84,12 +84,20 @@
           ? "" 
           : "<i>No messages yet</i>";
 
-        messages.forEach(msg => {
+          messages.forEach(msg => {
           const div = document.createElement("div");
           div.classList.add("message");
-          div.innerHTML = `<span class="author">${msg.author}:</span> ${msg.text}`;
-          chatDiv.appendChild(div);
-        });
+
+          div.innerHTML = `
+            <span class="author">${msg.author}:</span> ${msg.text}
+            <br />
+            👍 ${msg.likes ?? 0}
+            <button data-id="${msg.id}" class="like">Like</button>
+            👎 ${msg.dislikes ?? 0}
+            <button data-id="${msg.id}" class="dislike">Dislike</button>
+          `;
+         chatDiv.appendChild(div);
+         });
 
         chatDiv.scrollTop = chatDiv.scrollHeight;
       } catch (err) {
@@ -125,6 +133,22 @@
         alert("Failed to send message");
         console.error(err);
       }
+    });
+
+    // Handle like/dislike clicks
+    chatDiv.addEventListener("click", async (event) => {
+      const id = event.target.dataset.id;
+         if (!id) return;
+
+            if (event.target.classList.contains("like")) {
+                await fetch(`${BACKEND_URL}/messages/${id}/like`, { method: "POST" });
+            }
+
+            if (event.target.classList.contains("dislike")) {
+                await fetch(`${BACKEND_URL}/messages/${id}/dislike`, { method: "POST" });
+         }
+  
+     fetchMessages();
     });
 
     // Poll every 2 seconds
