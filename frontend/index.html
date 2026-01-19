@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat Application</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #chat {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 300px;
+      overflow-y: scroll;
+      margin-bottom: 20px;
+    }
+
+    .message {
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 5px;
+    }
+
+    .message .author {
+      font-weight: bold;
+    }
+
+    form {
+      display: flex;
+      gap: 5px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 8px;
+    }
+
+    button {
+      padding: 8px 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Chat App</h1>
+
+  <div id="chat">
+    <!-- Messages will appear here -->
+  </div>
+
+  <form id="message-form">
+    <input type="text" id="author-input" placeholder="Your name" required />
+    <input type="text" id="message-input" placeholder="Type a message..." required />
+    <button type="submit">Send</button>
+  </form>
+
+  <script>
+    // Use localhost for development, production URL otherwise
+    const BACKEND_URL = "http://localhost:3000";
+
+
+    const chatDiv = document.getElementById("chat");
+    const form = document.getElementById("message-form");
+    const authorInput = document.getElementById("author-input");
+    const messageInput = document.getElementById("message-input");
+
+    // Fetch and display messages
+    async function fetchMessages() {
+      try {
+        const response = await fetch(`${BACKEND_URL}/messages`);
+        if (!response.ok) throw new Error("Failed to fetch messages");
+        const messages = await response.json();
+
+        chatDiv.innerHTML = messages.length 
+          ? "" 
+          : "<i>No messages yet</i>";
+
+        messages.forEach(msg => {
+          const div = document.createElement("div");
+          div.classList.add("message");
+          div.innerHTML = `<span class="author">${msg.author}:</span> ${msg.text}`;
+          chatDiv.appendChild(div);
+        });
+
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+      } catch (err) {
+        chatDiv.textContent = "Failed to load messages";
+        console.error(err);
+      }
+    }
+
+    // Send new message
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const author = authorInput.value.trim();
+      const text = messageInput.value.trim();
+      if (!author || !text) return;
+
+      try {
+        const response = await fetch(`${BACKEND_URL}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ author, text })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          alert("Error: " + error.error);
+          return;
+        }
+
+        messageInput.value = "";
+        fetchMessages(); // Refresh messages
+      } catch (err) {
+        alert("Failed to send message");
+        console.error(err);
+      }
+    });
+
+    // Poll every 2 seconds
+    setInterval(fetchMessages, 2000);
+    fetchMessages(); // Initial load
+  </script>
+
+</body>
+</html>
