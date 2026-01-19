@@ -63,7 +63,9 @@
 
   <script>
     // Use localhost for development, production URL otherwise
-    const BACKEND_URL = "http://localhost:3000";
+    const BACKEND_URL = window.location.hostname.includes("localhost")
+  ? "http://localhost:3000"
+  : "https://bkks80004g4cgs4oowk8kkkk.hosting.codeyourfuture.io";
 
 
     const chatDiv = document.getElementById("chat");
