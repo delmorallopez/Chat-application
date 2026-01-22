@@ -70,6 +70,10 @@
     const authorInput = document.getElementById("author-input");
     const messageInput = document.getElementById("message-input");
     
+    // --------------------------
+    // RENDER MESSAGE
+    // --------------------------
+
     function renderMessage(msg) {
       const div = document.createElement("div");
       div.className = "message";
@@ -81,15 +85,18 @@
         👎 <span id="dislike-${msg.id}">${msg.dislikes}</span>
         <button data-id="${msg.id}" class="dislike">Dislike</button>
       `;
-    
       chatDiv.appendChild(div);
       chatDiv.scrollTop = chatDiv.scrollHeight;
     }
     
+    // --------------------------
     // SEND MESSAGE
+    // --------------------------
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
     
+      // Send message to backend
       await fetch(`${BACKEND_URL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -102,17 +109,24 @@
       messageInput.value = "";
     });
     
+    // --------------------------
     // LIKE / DISLIKE
+    // --------------------------
+
     chatDiv.addEventListener("click", async (e) => {
+      // Get message ID from button dataset
       const id = e.target.dataset.id;
+      // If no ID, do nothing
       if (!id) return;
     
+      // Handle like
       if (e.target.classList.contains("like")) {
         const res = await fetch(`${BACKEND_URL}/messages/${id}/like`, { method: "POST" });
         const data = await res.json();
         document.getElementById(`like-${id}`).textContent = data.likes;
       }
-    
+
+        // Handle dislike
       if (e.target.classList.contains("dislike")) {
         const res = await fetch(`${BACKEND_URL}/messages/${id}/dislike`, { method: "POST" });
         const data = await res.json();
@@ -120,15 +134,23 @@
       }
     });
     
+    // --------------------------
     // LONG POLLING
+    // --------------------------
+
+
     async function keepFetchingMessages() {
       try {
+        // Fetch new messages from backend
+        // If we have a lastMessageTimestamp, send it as a query param
         const query = lastMessageTimestamp ? `?since=${lastMessageTimestamp}` : "";
         const res = await fetch(`${BACKEND_URL}/messages${query}`);
         const messages = await res.json();
     
+        // Render each new message
         messages.forEach(msg => {
           renderMessage(msg);
+          // Update lastMessageTimestamp, if this message is newer
           lastMessageTimestamp = msg.timestamp;
         });
       } catch (err) {
@@ -137,7 +159,8 @@
         keepFetchingMessages();
       }
     }
-    
+     
+    // Start long polling
     keepFetchingMessages();
     </script>
 
