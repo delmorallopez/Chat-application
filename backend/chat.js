@@ -9,58 +9,75 @@ app.use(express.json());
 
 let messages = [];
 let nextId = 1;
+const callbacksForNewMessages = [];
 
-// GET messages
+// GET messages (long-polling)
 app.get("/messages", (req, res) => {
-  res.json(messages);
-});
+    const since = Number(req.query.since);
+    const messagesToSend = since
+      ? messages.filter(m => m.timestamp > since)
+      : messages;
+  
+    if (messagesToSend.length > 0) {
+      return res.json(messagesToSend);
+    }
+  
+    const timeout = setTimeout(() => {
+      res.json([]);
+    }, 30000);
+  
+    // Store the callback to be called when new messages arrive, the client is waiting, as soon as a new message is posted, it;s sent instantly
+    callbacksForNewMessages.push((newMessages) => {
+      clearTimeout(timeout);
+      res.json(newMessages);
+    });
+  });
+  
 
-// POST new message
+// POST message
 app.post("/messages", (req, res) => {
   const { author, text } = req.body;
 
   if (!author || !text) {
-    return res.status(400).json({ error: "Author and text are required" });
+    return res.status(400).json({ error: "Author and text required" });
   }
 
-  const message = {
+  const newMessage = {
     id: nextId++,
     author,
     text,
     likes: 0,
-    dislikes: 0
+    dislikes: 0,
+    timestamp: Date.now()
   };
 
-  messages.push(message);
-  res.status(201).json(message);
+  messages.push(newMessage);
+
+  // Notify all waiting clients
+  while (callbacksForNewMessages.length > 0) {
+    const callback = callbacksForNewMessages.pop();
+    callback([newMessage]);
+  }
+
+  res.status(201).json(newMessage);
 });
 
-// LIKE message
+// POST like/dislike
 app.post("/messages/:id/like", (req, res) => {
-  const id = Number(req.params.id);
-  const message = messages.find(m => m.id === id);
+    const message = messages.find(m => m.id === Number(req.params.id));
+    if (!message) return res.status(404).json({ error: "Not found" });
+    message.likes++;
+    res.json({ likes: message.likes });
+  });
+  
+  app.post("/messages/:id/dislike", (req, res) => {
+    const message = messages.find(m => m.id === Number(req.params.id));
+    if (!message) return res.status(404).json({ error: "Not found" });
+    message.dislikes++;
+    res.json({ dislikes: message.dislikes });
+  });
+  
 
-  if (!message) {
-    return res.status(404).json({ error: "Message not found" });
-  }
-
-  message.likes++;
-  res.json({ likes: message.likes });
-});
-
-// DISLIKE message
-app.post("/messages/:id/dislike", (req, res) => {
-  const id = Number(req.params.id);
-  const message = messages.find(m => m.id === id);
-
-  if (!message) {
-    return res.status(404).json({ error: "Message not found" });
-  }
-
-  message.dislikes++;
-  res.json({ dislikes: message.dislikes });
-});
-
-app.listen(port, () => {
-  console.log(`Chat server running on port ${port}`);
-});
+app.listen(port, () =>
+  console.log(`Chat server running on port ${port}`)
+);

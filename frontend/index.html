@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Chat Application</title>
+
   <style>
     body {
       font-family: sans-serif;
@@ -28,8 +29,12 @@
       margin-bottom: 5px;
     }
 
-    .message .author {
+    .author {
       font-weight: bold;
+    }
+
+    button {
+      margin-left: 5px;
     }
 
     form {
@@ -37,124 +42,104 @@
       gap: 5px;
     }
 
-    input[type="text"] {
+    input {
       flex: 1;
       padding: 8px;
     }
-
-    button {
-      padding: 8px 12px;
-    }
   </style>
 </head>
+
 <body>
 
-  <h1>Chat App</h1>
+<h1>Chat App</h1>
 
-  <div id="chat">
-    <!-- Messages will appear here -->
-  </div>
+<div id="chat"></div>
 
-  <form id="message-form">
-    <input type="text" id="author-input" placeholder="Your name" required />
-    <input type="text" id="message-input" placeholder="Type a message..." required />
-    <button type="submit">Send</button>
-  </form>
+<form id="message-form">
+  <input id="author-input" placeholder="Your name" required />
+  <input id="message-input" placeholder="Type a message..." required />
+  <button type="submit">Send</button>
+</form>
 
-  <script>
-    // Use localhost for development, production URL otherwise
-    const BACKEND_URL = window.location.hostname.includes("localhost")
-  ? "http://localhost:3000"
-  : "https://bkks80004g4cgs4oowk8kkkk.hosting.codeyourfuture.io";
-
-
+<script>
+    const BACKEND_URL = "http://localhost:3000";
+    let lastMessageTimestamp = null;
+    
     const chatDiv = document.getElementById("chat");
     const form = document.getElementById("message-form");
     const authorInput = document.getElementById("author-input");
     const messageInput = document.getElementById("message-input");
-
-    // Fetch and display messages
-    async function fetchMessages() {
+    
+    function renderMessage(msg) {
+      const div = document.createElement("div");
+      div.className = "message";
+    
+      div.innerHTML = `
+        <span class="author">${msg.author}:</span> ${msg.text}<br>
+        👍 <span id="like-${msg.id}">${msg.likes}</span>
+        <button data-id="${msg.id}" class="like">Like</button>
+        👎 <span id="dislike-${msg.id}">${msg.dislikes}</span>
+        <button data-id="${msg.id}" class="dislike">Dislike</button>
+      `;
+    
+      chatDiv.appendChild(div);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+    
+    // SEND MESSAGE
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+    
+      await fetch(`${BACKEND_URL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          author: authorInput.value.trim(),
+          text: messageInput.value.trim()
+        })
+      });
+    
+      messageInput.value = "";
+    });
+    
+    // LIKE / DISLIKE
+    chatDiv.addEventListener("click", async (e) => {
+      const id = e.target.dataset.id;
+      if (!id) return;
+    
+      if (e.target.classList.contains("like")) {
+        const res = await fetch(`${BACKEND_URL}/messages/${id}/like`, { method: "POST" });
+        const data = await res.json();
+        document.getElementById(`like-${id}`).textContent = data.likes;
+      }
+    
+      if (e.target.classList.contains("dislike")) {
+        const res = await fetch(`${BACKEND_URL}/messages/${id}/dislike`, { method: "POST" });
+        const data = await res.json();
+        document.getElementById(`dislike-${id}`).textContent = data.dislikes;
+      }
+    });
+    
+    // LONG POLLING
+    async function keepFetchingMessages() {
       try {
-        const response = await fetch(`${BACKEND_URL}/messages`);
-        if (!response.ok) throw new Error("Failed to fetch messages");
-        const messages = await response.json();
-
-        chatDiv.innerHTML = messages.length 
-          ? "" 
-          : "<i>No messages yet</i>";
-
-          messages.forEach(msg => {
-          const div = document.createElement("div");
-          div.classList.add("message");
-
-          div.innerHTML = `
-            <span class="author">${msg.author}:</span> ${msg.text}
-            <br />
-            👍 ${msg.likes ?? 0}
-            <button data-id="${msg.id}" class="like">Like</button>
-            👎 ${msg.dislikes ?? 0}
-            <button data-id="${msg.id}" class="dislike">Dislike</button>
-          `;
-         chatDiv.appendChild(div);
-         });
-
-        chatDiv.scrollTop = chatDiv.scrollHeight;
+        const query = lastMessageTimestamp ? `?since=${lastMessageTimestamp}` : "";
+        const res = await fetch(`${BACKEND_URL}/messages${query}`);
+        const messages = await res.json();
+    
+        messages.forEach(msg => {
+          renderMessage(msg);
+          lastMessageTimestamp = msg.timestamp;
+        });
       } catch (err) {
-        chatDiv.textContent = "Failed to load messages";
         console.error(err);
+      } finally {
+        keepFetchingMessages();
       }
     }
-
-    // Send new message
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-
-      const author = authorInput.value.trim();
-      const text = messageInput.value.trim();
-      if (!author || !text) return;
-
-      try {
-        const response = await fetch(`${BACKEND_URL}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author, text })
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          alert("Error: " + error.error);
-          return;
-        }
-
-        messageInput.value = "";
-        fetchMessages(); // Refresh messages
-      } catch (err) {
-        alert("Failed to send message");
-        console.error(err);
-      }
-    });
-
-    // Handle like/dislike clicks
-    chatDiv.addEventListener("click", async (event) => {
-      const id = event.target.dataset.id;
-         if (!id) return;
-
-            if (event.target.classList.contains("like")) {
-                await fetch(`${BACKEND_URL}/messages/${id}/like`, { method: "POST" });
-            }
-
-            if (event.target.classList.contains("dislike")) {
-                await fetch(`${BACKEND_URL}/messages/${id}/dislike`, { method: "POST" });
-         }
-  
-     fetchMessages();
-    });
-
-    // Poll every 2 seconds
-    setInterval(fetchMessages, 2000);
-    fetchMessages(); // Initial load
-  </script>
+    
+    keepFetchingMessages();
+    </script>
 
 </body>
 </html>
