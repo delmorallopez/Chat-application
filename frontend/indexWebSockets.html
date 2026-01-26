@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat App (WebSocket)</title>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #chat {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 300px;
+      overflow-y: scroll;
+      margin-bottom: 20px;
+    }
+
+    .message {
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .author {
+      font-weight: bold;
+    }
+
+    form {
+      display: flex;
+      gap: 5px;
+    }
+
+    input {
+      flex: 1;
+      padding: 8px;
+    }
+
+    button {
+      padding: 6px 10px;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Chat App (WebSockets)</h1>
+
+<div id="chat"></div>
+
+<form id="message-form">
+  <input id="author-input" placeholder="Your name" required />
+  <input id="message-input" placeholder="Type a message..." required />
+  <button type="submit">Send</button>
+</form>
+
+<script>
+  // ===============================
+  // CONFIG
+  // ===============================
+  const WS_URL = "ws://localhost:3000";
+
+  // ===============================
+  // ELEMENTS
+  // ===============================
+  const chatDiv = document.getElementById("chat");
+  const form = document.getElementById("message-form");
+  const authorInput = document.getElementById("author-input");
+  const messageInput = document.getElementById("message-input");
+
+  // ===============================
+  // RENDER
+  // ===============================
+
+  // Render a new message
+  function renderMessage(msg) {
+    // Prevent duplicates
+    if (document.getElementById(`msg-${msg.id}`)) return;
+
+    const div = document.createElement("div");
+    div.className = "message";
+    div.id = `msg-${msg.id}`;
+
+    div.innerHTML = `
+      <span class="author">${msg.author}:</span> ${msg.text}<br>
+      👍 <span id="like-${msg.id}">${msg.likes}</span>
+      <button data-id="${msg.id}" class="like">Like</button>
+      👎 <span id="dislike-${msg.id}">${msg.dislikes}</span>
+      <button data-id="${msg.id}" class="dislike">Dislike</button>
+    `;
+
+    chatDiv.appendChild(div);
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+  }
+
+  // updateMessage - update likes/dislikes
+  function updateMessage(msg) {
+    const likeSpan = document.getElementById(`like-${msg.id}`);
+    const dislikeSpan = document.getElementById(`dislike-${msg.id}`);
+
+    if (likeSpan) likeSpan.textContent = msg.likes;
+    if (dislikeSpan) dislikeSpan.textContent = msg.dislikes;
+  }
+
+  // ===============================
+  // WEBSOCKET
+  // ===============================
+  const socket = new WebSocket(WS_URL);
+  
+  socket.onopen = () => {
+    console.log("WebSocket connected");
+  };
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    // Initial messages
+    if (data.type === "init") {
+      data.messages.forEach(renderMessage);
+    }
+
+    // New message
+    if (data.type === "message") {
+      renderMessage(data.message);
+    }
+
+    // Like / Dislike update
+    if (data.type === "update") {
+      updateMessage(data.message);
+    }
+  };
+
+  socket.onerror = (err) => {
+    console.error("❌ WebSocket error", err);
+  };
+
+  // ===============================
+  // SEND MESSAGE (WebSocket)
+  // ===============================
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const author = authorInput.value.trim();
+    const text = messageInput.value.trim();
+    if (!author || !text) return;
+
+    socket.send(JSON.stringify({
+      type: "message",
+      author,
+      text
+    }));
+
+    messageInput.value = "";
+  });
+
+  // ===============================
+  // LIKE / DISLIKE (WebSocket)
+  // ===============================
+  chatDiv.addEventListener("click", (e) => {
+    const id = Number(e.target.dataset.id);
+    if (!id) return;
+
+    if (e.target.classList.contains("like")) {
+      socket.send(JSON.stringify({
+        type: "like",
+        id
+      }));
+    }
+
+    if (e.target.classList.contains("dislike")) {
+      socket.send(JSON.stringify({
+        type: "dislike",
+        id
+      }));
+    }
+  });
+</script>
+
+</body>
+</html>

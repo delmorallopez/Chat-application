@@ -1,60 +1,71 @@
+import http from "http";
 import express from "express";
 import cors from "cors";
+import { server as WebSocketServer } from "websocket";
 
 const app = express();
 const port = 3000;
 
+// --------------------
+// Middleware
+// --------------------
 app.use(cors());
 app.use(express.json());
 
+// --------------------
+// HTTP server (shared)
+// --------------------
+const server = http.createServer(app);
+
+// --------------------
+// WebSocket server
+// --------------------
+const wsServer = new WebSocketServer({
+  httpServer: server
+});
+
+// --------------------
+// Shared state
+// --------------------
 let messages = [];
 let nextId = 1;
+
+// Long-polling callbacks
 const callbacksForNewMessages = [];
 
-// -------------------------------------
-// GET messages (long-polling)
-// -------------------------------------
+// WebSocket connections
+const connections = [];
+
+// ===================================================
+// LONG-POLLING HTTP API
+// ===================================================
 
 app.get("/messages", (req, res) => {
-    // Check if there are new messages since the given timestamp
-    const since = Number(req.query.since);
-    // Filter messages based on the 'since' timestamp
-    const messagesToSend = since
-      ? messages.filter(m => m.timestamp > since)
-      : messages;
-  
-    // If there are new messages, send them immediately
-    if (messagesToSend.length > 0) {
-      return res.json(messagesToSend);
-    }
-  
-    // Otherwise, set a timeout to respond after 30 seconds if no new messages arrive
-    const timeout = setTimeout(() => {
-      res.json([]);
-    }, 30000);
-  
-    // Store the callback to be called when new messages arrive, the client is waiting, as soon as a new message is posted, it's sent instantly
-    callbacksForNewMessages.push((newMessages) => {
-      // clear the timeout to avoid sending an empty response
-      clearTimeout(timeout);
-      // Send the new messages to the client
-      res.json(newMessages);
-    });
+  const since = Number(req.query.since);
+  const messagesToSend = since
+    ? messages.filter(m => m.timestamp > since)
+    : messages;
+
+  if (messagesToSend.length > 0) {
+    return res.json(messagesToSend);
+  }
+
+  const timeout = setTimeout(() => {
+    res.json([]);
+  }, 30000);
+
+  callbacksForNewMessages.push((newMessages) => {
+    clearTimeout(timeout);
+    res.json(newMessages);
   });
-  
-// -------------------------------------
-// POST message 
-// -------------------------------------
+});
 
 app.post("/messages", (req, res) => {
-  // Validate request body  
   const { author, text } = req.body;
-
-  // Simple validation
   if (!author || !text) {
     return res.status(400).json({ error: "Author and text required" });
   }
-    // Create new message
+
   const newMessage = {
     id: nextId++,
     author,
@@ -64,48 +75,161 @@ app.post("/messages", (req, res) => {
     timestamp: Date.now()
   };
 
-  // Store the new message
   messages.push(newMessage);
 
-  // Notify all waiting clients about the new message
+  // Notify long-polling clients
   while (callbacksForNewMessages.length > 0) {
-    // Remove the last waiting client 
-    const callback = callbacksForNewMessages.pop();
-    // Send the new message as an array
-    callback([newMessage]);
+    const cb = callbacksForNewMessages.pop();
+    cb([newMessage]);
   }
-    // Respond to the sender with the created message
+
+  // Notify WebSocket clients
+  connections.forEach(conn => {
+    conn.sendUTF(JSON.stringify({
+      type: "message",
+      message: newMessage
+    }));
+  });
+
   res.status(201).json(newMessage);
 });
 
-// -------------------------------------
-// POST like/dislike
-// -------------------------------------
-
-// Increment likes or dislikes for a message
 app.post("/messages/:id/like", (req, res) => {
-    // Find the message by ID
-    const message = messages.find(m => m.id === Number(req.params.id));
-    // If not found, return 404
-    if (!message) return res.status(404).json({ error: "Not found" });
-    // Increment likes
-    message.likes++;
-    // Respond with the new like count
-    res.json({ likes: message.likes });
+  const msg = messages.find(m => m.id === Number(req.params.id));
+  if (!msg) return res.status(404).json({ error: "Not found" });
+
+  msg.likes++;
+
+  broadcastUpdate(msg);
+  res.json({ likes: msg.likes });
+});
+
+app.post("/messages/:id/dislike", (req, res) => {
+  const msg = messages.find(m => m.id === Number(req.params.id));
+  if (!msg) return res.status(404).json({ error: "Not found" });
+
+  msg.dislikes++;
+
+  broadcastUpdate(msg);
+  res.json({ dislikes: msg.dislikes });
+});
+
+// ===================================================
+// WEBSOCKET
+// ===================================================
+
+// ===================================================
+// WEBSOCKET
+// ===================================================
+
+wsServer.on("request", (request) => {
+    const connection = request.accept(null, request.origin);
+    connections.push(connection);
+  
+    console.log("🔌 WebSocket connected");
+  
+    // Send initial messages
+    connection.sendUTF(JSON.stringify({
+      type: "init",
+      messages
+    }));
+  
+    // --------------------
+    // Handle incoming WS messages
+    // --------------------
+    connection.on("message", (message) => {
+      if (message.type !== "utf8") return;
+  
+      let data;
+      try {
+        data = JSON.parse(message.utf8Data);
+      } catch {
+        return;
+      }
+  
+      // NEW MESSAGE
+      if (data.type === "message") {
+        const newMessage = {
+          id: nextId++,
+          author: data.author,
+          text: data.text,
+          likes: 0,
+          dislikes: 0,
+          timestamp: Date.now()
+        };
+  
+        messages.push(newMessage);
+  
+        connections.forEach(conn =>
+          conn.sendUTF(JSON.stringify({
+            type: "message",
+            message: newMessage
+          }))
+        );
+  
+        return;
+      }
+  
+      // LIKE
+      if (data.type === "like") {
+        handleReaction(data.id, "like");
+        return;
+      }
+  
+      // DISLIKE
+      if (data.type === "dislike") {
+        handleReaction(data.id, "dislike");
+        return;
+      }
+    });
+  
+    // --------------------
+    // Handle disconnect
+    // --------------------
+    connection.on("close", () => {
+      const index = connections.indexOf(connection);
+      if (index !== -1) connections.splice(index, 1);
+      console.log("❌ WebSocket disconnected");
+    });
   });
+  
+  
+  // --------------------
+    // Handle Reactions
+    // --------------------
+    
+  function handleReaction(id, reaction) {
+    const message = messages.find(m => m.id === id);
+    if (!message) return;
+  
+    if (reaction === "like") message.likes++;
+    if (reaction === "dislike") message.dislikes++;
+  
+    connections.forEach(conn =>
+      conn.sendUTF(JSON.stringify({
+        type: "update",
+        message
+      }))
+    );
+  }
+
   
 
-  app.post("/messages/:id/dislike", (req, res) => {
-    // Find the message by ID
-    const message = messages.find(m => m.id === Number(req.params.id));
-    // If not found, return 404
-    if (!message) return res.status(404).json({ error: "Not found" });
-    // Increment dislikes
-    message.dislikes++;
-    // Respond with the new dislike count
-    res.json({ dislikes: message.dislikes });
-  });
-  
-app.listen(port, () =>
-  console.log(`Chat server running on port ${port}`)
-);
+// --------------------
+// Helper
+// --------------------
+function broadcastUpdate(message) {
+  connections.forEach(conn =>
+    conn.sendUTF(JSON.stringify({
+      type: "update",
+      message
+    }))
+  );
+}
+
+// --------------------
+// Start server
+// --------------------
+server.listen(port, () => {
+  console.log(`🚀 Server running on http://localhost:${port}`);
+});
