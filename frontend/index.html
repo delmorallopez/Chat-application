@@ -1,168 +1,409 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Chat Application</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Real Time Chat</title>
 
   <style>
-    body {
-      font-family: sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
-    h1 {
-      text-align: center;
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .chat-container {
+      width: 95%;
+      max-width: 700px;
+      height: 90vh;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    header {
+      padding: 20px;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+    }
+
+    header h1 {
+      font-size: 20px;
+    }
+
+    #controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    select, button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    select {
+      background: white;
+    }
+
+    button {
+      background: #4CAF50;
+      color: white;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
     }
 
     #chat {
-      border: 1px solid #ccc;
-      padding: 10px;
-      height: 300px;
-      overflow-y: scroll;
-      margin-bottom: 20px;
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .message {
-      padding: 5px;
-      border-bottom: 1px solid #eee;
-      margin-bottom: 5px;
+      background: white;
+      padding: 12px 15px;
+      border-radius: 15px;
+      max-width: 75%;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      animation: fadeIn 0.2s ease-in-out;
     }
 
     .author {
       font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #333;
     }
 
-    button {
-      margin-left: 5px;
+    .text {
+      margin-bottom: 8px;
+    }
+
+    .reactions {
+      font-size: 13px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .reaction-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.2s;
+    }
+
+    .reaction-btn:hover {
+      transform: scale(1.2);
     }
 
     form {
       display: flex;
-      gap: 5px;
+      padding: 15px;
+      gap: 10px;
+      background: rgba(255,255,255,0.2);
     }
 
     input {
       flex: 1;
-      padding: 8px;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      outline: none;
+      font-size: 14px;
     }
+
+    form button {
+      background: #2196F3;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    #chat::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #chat::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.4);
+      border-radius: 10px;
+    }
+
+    .timestamp {
+      font-size: 12px;
+      color: #777;
+      margin-left: 8px;
+      font-weight: normal;
+    }
+
   </style>
 </head>
 
 <body>
 
-<h1>Chat App</h1>
+<div class="chat-container">
 
-<div id="chat"></div>
+  <header>
+    <h1>💬 Real-Time Chat</h1>
+    <div id="controls">
+      <select id="mode-select">
+        <option value="ws">WebSocket</option>
+        <option value="poll">Long Polling</option>
+      </select>
+      <button id="connect-btn">Connect</button>
+    </div>
+  </header>
 
-<form id="message-form">
-  <input id="author-input" placeholder="Your name" required />
-  <input id="message-input" placeholder="Type a message..." required />
-  <button type="submit">Send</button>
-</form>
+  <div id="chat"></div>
+
+  <form id="message-form">
+    <input id="author-input" placeholder="Your name" required />
+    <input id="message-input" placeholder="Type a message..." required />
+    <button type="submit">Send</button>
+  </form>
+
+</div>
 
 <script>
-    const BACKEND_URL = "http://localhost:3000";
-    let lastMessageTimestamp = null;
-    
-    const chatDiv = document.getElementById("chat");
-    const form = document.getElementById("message-form");
-    const authorInput = document.getElementById("author-input");
-    const messageInput = document.getElementById("message-input");
-    
-    // --------------------------
-    // RENDER MESSAGE
-    // --------------------------
+const BACKEND_HTTP = "http://localhost:3000";
+const BACKEND_WS = "ws://localhost:3000";
 
-    function renderMessage(msg) {
-      const div = document.createElement("div");
-      div.className = "message";
-    
-      div.innerHTML = `
-        <span class="author">${msg.author}:</span> ${msg.text}<br>
-        👍 <span id="like-${msg.id}">${msg.likes}</span>
-        <button data-id="${msg.id}" class="like">Like</button>
-        👎 <span id="dislike-${msg.id}">${msg.dislikes}</span>
-        <button data-id="${msg.id}" class="dislike">Dislike</button>
-      `;
-      chatDiv.appendChild(div);
-      chatDiv.scrollTop = chatDiv.scrollHeight;
+const chatDiv = document.getElementById("chat");
+const form = document.getElementById("message-form");
+const authorInput = document.getElementById("author-input");
+const messageInput = document.getElementById("message-input");
+const modeSelect = document.getElementById("mode-select");
+const connectBtn = document.getElementById("connect-btn");
+
+let transport = null;
+let socket = null;
+let pollingActive = false;
+let lastTimestamp = null;
+
+// ===============================
+// RENDER
+// ===============================
+function renderMessage(msg) {
+  if (document.getElementById(`msg-${msg.id}`)) {
+    updateMessage(msg);
+    return;
+  }
+
+  const div = document.createElement("div");
+  div.className = "message";
+  div.id = `msg-${msg.id}`;
+
+  div.innerHTML = `
+    <div class="author">
+      ${msg.author}
+      <span class="timestamp">${formatTime(msg.timestamp)}</span>
+    </div>
+
+    <div class="text">${msg.text}</div>
+
+    <div class="reactions">
+      👍 <span id="like-${msg.id}">${msg.likes}</span>
+      <button data-id="${msg.id}" class="reaction-btn like">Like</button>
+      👎 <span id="dislike-${msg.id}">${msg.dislikes}</span>
+      <button data-id="${msg.id}" class="reaction-btn dislike">Dislike</button>
+    </div>
+  `;
+
+  chatDiv.appendChild(div);
+  chatDiv.scrollTop = chatDiv.scrollHeight;
+}
+
+
+function updateMessage(msg) {
+  const likeSpan = document.getElementById(`like-${msg.id}`);
+  const dislikeSpan = document.getElementById(`dislike-${msg.id}`);
+
+  if (likeSpan) likeSpan.textContent = msg.likes;
+  if (dislikeSpan) dislikeSpan.textContent = msg.dislikes;
+}
+
+// ===============================
+// WEBSOCKET MODE
+// ===============================
+function startWebSocket() {
+  stopPolling();
+
+  socket = new WebSocket(BACKEND_WS);
+
+  transport = {
+    sendMessage: (author, text) => {
+      socket.send(JSON.stringify({
+        type: "message",
+        author,
+        text
+      }));
+    },
+    sendReaction: (type, id) => {
+      socket.send(JSON.stringify({ type, id }));
     }
-    
-    // --------------------------
-    // SEND MESSAGE
-    // --------------------------
+  };
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-    
-      // Send message to backend
-      await fetch(`${BACKEND_URL}/messages`, {
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.type === "init") {
+      chatDiv.innerHTML = "";
+      data.messages.forEach(renderMessage);
+    }
+
+    if (data.type === "message") {
+      renderMessage(data.message);
+    }
+
+    if (data.type === "update") {
+      updateMessage(data.message);
+    }
+  };
+}
+
+// ===============================
+// LONG POLLING MODE
+// ===============================
+function startLongPolling() {
+  stopWebSocket();
+
+  pollingActive = true;
+  lastTimestamp = null;
+
+  transport = {
+    sendMessage: async (author, text) => {
+      await fetch(`${BACKEND_HTTP}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          author: authorInput.value.trim(),
-          text: messageInput.value.trim()
-        })
+        body: JSON.stringify({ author, text })
       });
-    
-      messageInput.value = "";
-    });
-    
-    // --------------------------
-    // LIKE / DISLIKE
-    // --------------------------
-
-    chatDiv.addEventListener("click", async (e) => {
-      // Get message ID from button dataset
-      const id = e.target.dataset.id;
-      // If no ID, do nothing
-      if (!id) return;
-    
-      // Handle like
-      if (e.target.classList.contains("like")) {
-        const res = await fetch(`${BACKEND_URL}/messages/${id}/like`, { method: "POST" });
-        const data = await res.json();
-        document.getElementById(`like-${id}`).textContent = data.likes;
-      }
-
-        // Handle dislike
-      if (e.target.classList.contains("dislike")) {
-        const res = await fetch(`${BACKEND_URL}/messages/${id}/dislike`, { method: "POST" });
-        const data = await res.json();
-        document.getElementById(`dislike-${id}`).textContent = data.dislikes;
-      }
-    });
-    
-    // --------------------------
-    // LONG POLLING
-    // --------------------------
-
-
-    async function keepFetchingMessages() {
-      try {
-        // Fetch new messages from backend
-        // If we have a lastMessageTimestamp, send it as a query param
-        const query = lastMessageTimestamp ? `?since=${lastMessageTimestamp}` : "";
-        const res = await fetch(`${BACKEND_URL}/messages${query}`);
-        const messages = await res.json();
-    
-        // Render each new message
-        messages.forEach(msg => {
-          renderMessage(msg);
-          // Update lastMessageTimestamp, if this message is newer
-          lastMessageTimestamp = msg.timestamp;
-        });
-      } catch (err) {
-        console.error(err);
-      } finally {
-        keepFetchingMessages();
-      }
+    },
+    sendReaction: async (type, id) => {
+      await fetch(`${BACKEND_HTTP}/messages/${id}/${type}`, {
+        method: "POST"
+      });
     }
-     
-    // Start long polling
-    keepFetchingMessages();
-    </script>
+  };
+
+  async function poll() {
+    if (!pollingActive) return;
+
+    try {
+      const query = lastTimestamp ? `?since=${lastTimestamp}` : "";
+      const res = await fetch(`${BACKEND_HTTP}/messages${query}`);
+      const messages = await res.json();
+
+      messages.forEach(msg => {
+        renderMessage(msg);
+        lastTimestamp = msg.timestamp;
+      });
+
+    } catch (err) {
+      console.error(err);
+    }
+
+    poll();
+  }
+
+  poll();
+}
+
+// ===============================
+// STOP FUNCTIONS
+// ===============================
+function stopWebSocket() {
+  if (socket) {
+    socket.close();
+    socket = null;
+  }
+}
+
+function stopPolling() {
+  pollingActive = false;
+}
+
+// ===============================
+// UI EVENTS
+// ===============================
+connectBtn.addEventListener("click", () => {
+  chatDiv.innerHTML = "";
+
+  if (modeSelect.value === "ws") {
+    startWebSocket();
+  } else {
+    startLongPolling();
+  }
+});
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!transport) return;
+
+  const author = authorInput.value.trim();
+  const text = messageInput.value.trim();
+  if (!author || !text) return;
+
+  transport.sendMessage(author, text);
+  messageInput.value = "";
+});
+
+chatDiv.addEventListener("click", (e) => {
+  if (!transport) return;
+
+  const id = Number(e.target.dataset.id);
+  if (!id) return;
+
+  if (e.target.classList.contains("like")) {
+    transport.sendReaction("like", id);
+  }
+
+  if (e.target.classList.contains("dislike")) {
+    transport.sendReaction("dislike", id);
+  }
+});
+
+// ===============================
+// ADD TIMESTAMP TO MESSAGES
+// ===============================
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+
+</script>
 
 </body>
 </html>
