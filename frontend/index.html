@@ -193,8 +193,8 @@
 </div>
 
 <script>
-const BACKEND_HTTP = "https://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
-const BACKEND_WS = "wss://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
+const BACKEND_HTTP = "http://localhost:3000";
+const BACKEND_WS = "ws://localhost:3000";
 
 const chatDiv = document.getElementById("chat");
 const form = document.getElementById("message-form");
@@ -203,26 +203,28 @@ const messageInput = document.getElementById("message-input");
 const modeSelect = document.getElementById("mode-select");
 const connectBtn = document.getElementById("connect-btn");
 
-let transport = null;
-let socket = null;
-let pollingActive = false;
-let lastTimestamp = null;
+let transport = null; // Transport layer (WebSocket or Long Polling)
+let socket = null; // WebSocket instance
+let pollingActive = false; // Prevent infinite polling loops
+let lastTimestamp = null; // avoid duplicate messages in long polling
 
 // ===============================
 // RENDER
 // ===============================
 function renderMessage(msg) {
-  if (document.getElementById(`msg-${msg.id}`)) {
-    updateMessage(msg);
+  if (document.getElementById(`msg-${msg.id}`)) { // If message already exists, just update reactions
+    updateMessage(msg); 
     return;
   }
-
-  const div = document.createElement("div");
+  
+  // Create message element
+  const div = document.createElement("div"); // create DOM element for the message
   div.className = "message";
   div.id = `msg-${msg.id}`;
 
-  div.innerHTML = `
-    <div class="author">
+  // Inject Author, Timestamp, Text and Reactions
+  div.innerHTML = ` 
+    <div class="author"> 
       ${msg.author}
       <span class="timestamp">${formatTime(msg.timestamp)}</span>
     </div>
@@ -237,11 +239,12 @@ function renderMessage(msg) {
     </div>
   `;
 
+  // Append to chat and scroll to bottom
   chatDiv.appendChild(div);
   chatDiv.scrollTop = chatDiv.scrollHeight;
 }
 
-
+// update likes/dislikes spans ahd update textContent with new values
 function updateMessage(msg) {
   const likeSpan = document.getElementById(`like-${msg.id}`);
   const dislikeSpan = document.getElementById(`dislike-${msg.id}`);
@@ -254,36 +257,36 @@ function updateMessage(msg) {
 // WEBSOCKET MODE
 // ===============================
 function startWebSocket() {
-  stopPolling();
+  stopPolling(); // Stop long polling if active
 
-  socket = new WebSocket(BACKEND_WS);
+  socket = new WebSocket(BACKEND_WS); // Create new WebSocket connection
 
-  transport = {
-    sendMessage: (author, text) => {
+  transport = { // Define transport interface for WebSocket
+    sendMessage: (author, text) => { // Send message as JSON string with type "message"
       socket.send(JSON.stringify({
         type: "message",
         author,
         text
       }));
     },
-    sendReaction: (type, id) => {
+    sendReaction: (type, id) => { // type is "like" or "dislike"
       socket.send(JSON.stringify({ type, id }));
     }
   };
 
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+  socket.onmessage = (event) => { // Handle incoming messages from server
+    const data = JSON.parse(event.data); // Server sends different types of messages: "init" for initial load, "message" for new messages, "update" for reactions updates
 
-    if (data.type === "init") {
+    if (data.type === "init") { // Clear chat and render initial messages
       chatDiv.innerHTML = "";
       data.messages.forEach(renderMessage);
     }
-
-    if (data.type === "message") {
+ 
+    if (data.type === "message") { // Render new message
       renderMessage(data.message);
     }
 
-    if (data.type === "update") {
+    if (data.type === "update") { // Update likes/dislikes for a message
       updateMessage(data.message);
     }
   };
@@ -293,13 +296,13 @@ function startWebSocket() {
 // LONG POLLING MODE
 // ===============================
 function startLongPolling() {
-  stopWebSocket();
+  stopWebSocket(); // Stop WebSocket if active
 
   pollingActive = true;
   lastTimestamp = null;
 
-  transport = {
-    sendMessage: async (author, text) => {
+  transport = { // Define transport interface for Long Polling
+    sendMessage: async (author, text) => { // Send message via HTTP POST to backend
       await fetch(`${BACKEND_HTTP}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -313,9 +316,10 @@ function startLongPolling() {
     }
   };
 
-  async function poll() {
+  async function poll() { // Polling function to fetch new messages from backend
     if (!pollingActive) return;
-
+    
+    // Fetch messages since last timestamp to avoid duplicates
     try {
       const query = lastTimestamp ? `?since=${lastTimestamp}` : "";
       const res = await fetch(`${BACKEND_HTTP}/messages${query}`);
@@ -330,7 +334,7 @@ function startLongPolling() {
       console.error(err);
     }
 
-    poll();
+    poll(); // Continue polling immediately after receiving response
   }
 
   poll();
@@ -339,53 +343,53 @@ function startLongPolling() {
 // ===============================
 // STOP FUNCTIONS
 // ===============================
-function stopWebSocket() {
+function stopWebSocket() { // Close WebSocket connection if it exists
   if (socket) {
     socket.close();
     socket = null;
   }
 }
 
-function stopPolling() {
+function stopPolling() { // Stop long polling by setting flag to false
   pollingActive = false;
 }
 
 // ===============================
 // UI EVENTS
 // ===============================
-connectBtn.addEventListener("click", () => {
-  chatDiv.innerHTML = "";
+connectBtn.addEventListener("click", () => { // Connect button clicked, switch transport mode
+  chatDiv.innerHTML = "";                    // When users click connect, clear chat and start selected transport mode
 
-  if (modeSelect.value === "ws") {
+  if (modeSelect.value === "ws") { // 
     startWebSocket();
   } else {
-    startLongPolling();
+    startLongPolling(); // Start long polling
   }
 });
 
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
+form.addEventListener("submit", (e) => { // sending a new message
+  e.preventDefault(); // Prevent form submission
   if (!transport) return;
 
   const author = authorInput.value.trim();
   const text = messageInput.value.trim();
   if (!author || !text) return;
 
-  transport.sendMessage(author, text);
-  messageInput.value = "";
+  transport.sendMessage(author, text); // call transport sendmessage method to send message to backend
+  messageInput.value = ""; // clear message input after sending
 });
 
-chatDiv.addEventListener("click", (e) => {
+chatDiv.addEventListener("click", (e) => { // Handle like/dislike button clicks
   if (!transport) return;
 
-  const id = Number(e.target.dataset.id);
-  if (!id) return;
+  const id = Number(e.target.dataset.id); // Get message ID from data attribute
+  if (id === undefined) return;
 
-  if (e.target.classList.contains("like")) {
+  if (e.target.classList.contains("like")) { // Like button clicked, call transport sendReaction with type "like"
     transport.sendReaction("like", id);
   }
 
-  if (e.target.classList.contains("dislike")) {
+  if (e.target.classList.contains("dislike")) { // Dislike button clicked, call transport sendReaction with type "dislike"
     transport.sendReaction("dislike", id);
   }
 });
@@ -394,7 +398,7 @@ chatDiv.addEventListener("click", (e) => {
 // ADD TIMESTAMP TO MESSAGES
 // ===============================
 
-function formatTime(timestamp) {
+function formatTime(timestamp) { // Convert timestamp to human-readable time format
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], {
     hour: "2-digit",
