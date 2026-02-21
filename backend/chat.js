@@ -15,24 +15,23 @@ app.use(express.json());
 // ===============================
 // HTTP Server
 // ===============================
-const server = http.createServer(app);
+const server = http.createServer(app); // http server 
 
 // ===============================
 // WebSocket Server
 // ===============================
-const wsServer = new WebSocketServer({
+const wsServer = new WebSocketServer({ // WebSocket server needs raw HTTP server to work
   httpServer: server
 });
 
 // ===============================
 // Shared State
 // ===============================
-let messages = [];
-let nextId = 1;
+let messages = []; // In-memory message store (Single Source of Truth). Both HTTP and Websocket APIs will read/write to this array.
+let nextId = 1; // Simple incremental ID generator for messages.
 
-const connections = [];
-const callbacksForNewMessages = [];
-
+const connections = []; // Keep track of connected WebSocket clients so we can push updates to them when messages change. 
+const callbacksForNewMessages = []; // For long polling: when a new message arrives, we need to notify all pending HTTP requests waiting for new messages. 
 // ===================================================
 // CORE LOGIC (Single Source of Truth)
 // ===================================================
@@ -92,58 +91,58 @@ function handleReaction(id, reaction) {
 // ===================================================
 
 app.get("/messages", (req, res) => {
-  const since = Number(req.query.since);
+  const since = Number(req.query.since); // Get "since" timestamp from query params
 
-  const messagesToSend = since
+  const messagesToSend = since // If "since" is provided, filter messages to only those newer than "since". Otherwise, send all messages.
     ? messages.filter(m => m.timestamp > since)
     : messages;
 
-  if (messagesToSend.length > 0) {
+  if (messagesToSend.length > 0) { // If the messages exist, send immediately, if not hold the request open 
     return res.json(messagesToSend);
   }
 
-  const timeout = setTimeout(() => {
+  const timeout = setTimeout(() => { 
     res.json([]);
   }, 30000);
 
-  callbacksForNewMessages.push((newMessages) => {
+  callbacksForNewMessages.push((newMessages) => { 
     clearTimeout(timeout);
     res.json(newMessages);
   });
 });
 
-app.post("/messages", (req, res) => {
+app.post("/messages", (req, res) => { // Create new message via HTTP API
   const { author, text } = req.body;
 
   if (!author || !text) {
     return res.status(400).json({ error: "Author and text required" });
   }
 
-  const newMessage = createMessage(author, text);
+  const newMessage = createMessage(author, text); // Use core logic function to create message, which will also handle notifying WebSocket and long polling clients.
   res.status(201).json(newMessage);
 });
 
-app.post("/messages/:id/like", (req, res) => {
+app.post("/messages/:id/like", (req, res) => { // Like a message via HTTP API
   const message = handleReaction(Number(req.params.id), "like");
   if (!message) return res.status(404).json({ error: "Not found" });
 
-  res.json({ likes: message.likes });
+  res.json({ likes: message.likes }); // Only return the updated like count, not the whole message. The frontend will update the UI based on this response.
 });
 
-app.post("/messages/:id/dislike", (req, res) => {
+app.post("/messages/:id/dislike", (req, res) => { // Dislike a message via HTTP API
   const message = handleReaction(Number(req.params.id), "dislike");
   if (!message) return res.status(404).json({ error: "Not found" });
 
-  res.json({ dislikes: message.dislikes });
+  res.json({ dislikes: message.dislikes }); // Only return the updated dislike count, not the whole message. The frontend will update the UI based on this response.
 });
 
 // ===================================================
 // WEBSOCKET
 // ===================================================
 
-wsServer.on("request", (request) => {
-  const connection = request.accept(null, request.origin);
-  connections.push(connection);
+wsServer.on("request", (request) => { // When a new WebSocket connection is requested, accept it and add it to our list of connections.
+  const connection = request.accept(null, request.origin); // accept the connection
+  connections.push(connection); // store the connection so we can send updates to it later
 
   console.log("🔌 WebSocket connected");
 
@@ -153,30 +152,33 @@ wsServer.on("request", (request) => {
     messages
   }));
 
-  connection.on("message", (message) => {
+  // When a message is received from the client, parse it and determine if it's a new chat message or a reaction (like/dislike). 
+  // Then call the appropriate core logic function to handle it, which will also take care of notifying other clients.
+  connection.on("message", (message) => { 
     if (message.type !== "utf8") return;
 
     let data;
     try {
-      data = JSON.parse(message.utf8Data);
+      data = JSON.parse(message.utf8Data); // Parse the incoming message data. We expect it to be JSON with a "type" field that indicates what kind of message it is (e.g. "message", "like", "dislike").
     } catch {
       return;
     }
 
-    if (data.type === "message") {
+    if (data.type === "message") { // If it's a new chat message
       createMessage(data.author, data.text);
     }
 
-    if (data.type === "like") {
+    if (data.type === "like") { // If it's a like reaction
       handleReaction(data.id, "like");
     }
 
-    if (data.type === "dislike") {
+    if (data.type === "dislike") { // If it's a dislike reaction
       handleReaction(data.id, "dislike");
     }
   });
 
-  connection.on("close", () => {
+  // When the WebSocket connection is closed, remove it from our list of connections so we don't try to send updates to it anymore.
+  connection.on("close", () => { 
     const index = connections.indexOf(connection);
     if (index !== -1) connections.splice(index, 1);
     console.log("❌ WebSocket disconnected");
@@ -186,6 +188,6 @@ wsServer.on("request", (request) => {
 // ===============================
 // Start Server
 // ===============================
-server.listen(port, () => {
+server.listen(port, () => { // Start the HTTP server (which also starts the WebSocket server since it's using the same underlying server)
   console.log(`🚀 Server running on http://localhost:${port}`);
 });
