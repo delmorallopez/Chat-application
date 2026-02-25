@@ -22,9 +22,9 @@
     }
 
     .chat-container {
-      width: 95%;
-      max-width: 700px;
-      height: 90vh;
+     width: 98%;
+      max-width: 900px;
+      height: 95vh;
       background: rgba(255, 255, 255, 0.15);
       backdrop-filter: blur(20px);
       border-radius: 20px;
@@ -32,7 +32,7 @@
       flex-direction: column;
       box-shadow: 0 20px 40px rgba(0,0,0,0.2);
       overflow: hidden;
-    }
+}
 
     header {
       padding: 20px;
@@ -170,9 +170,13 @@
 <body>
 
 <div class="chat-container">
-
   <header>
-    <h1>💬 Real-Time Chat</h1>
+    <h1>
+      💬 Real-Time Chat 
+      <span style="font-size:18px; font-weight:600; opacity:0.8;">
+        (Please choose a connection before starting)
+      </span>
+    </h1>
     <div id="controls">
       <select id="mode-select">
         <option value="ws">WebSocket</option>
