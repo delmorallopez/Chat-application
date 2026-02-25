@@ -9,8 +9,14 @@ const port = 3000;
 // ===============================
 // Middleware
 // ===============================
+// Enable CORS so that our frontend, can make requests to this backend without 
+// being blocked by the browser's same-origin policy. This is essential for our frontend to be able to fetch messages 
+// and send new messages/reactions via the HTTP API.
+
+//  Built-in middleware to parse JSON bodies. This allows us to access req.body in our POST endpoints when clients send JSON data
+//  (e.g. when creating a new message or sending a reaction).
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Reads the body of the request, Parses JSON, adds it to req.body
 
 // ===============================
 // HTTP Server
@@ -33,17 +39,17 @@ let nextId = 1; // Simple incremental ID generator for messages.
 const connections = []; // Keep track of connected WebSocket clients so we can push updates to them when messages change. 
 const callbacksForNewMessages = []; // For long polling: when a new message arrives, we need to notify all pending HTTP requests waiting for new messages. 
 // ===================================================
-// CORE LOGIC (Single Source of Truth)
+// CORE LOGIC (Single Source of Truth) 
 // ===================================================
 
-function notifyLongPolling(newMessages) {
+function notifyLongPolling(newMessages) { // When a new message is created or updated, we need to notify all pending long polling requests so they can respond with the new data.
   while (callbacksForNewMessages.length > 0) {
     const cb = callbacksForNewMessages.pop();
     cb(newMessages);
   }
 }
 
-function notifyWebSockets(type, message) {
+function notifyWebSockets(type, message) { // When a new message is created or updated, we need to push the update to all connected WebSocket clients so they can update their UI in real-time.
   connections.forEach(conn => {
     conn.sendUTF(JSON.stringify({
       type,
@@ -52,7 +58,7 @@ function notifyWebSockets(type, message) {
   });
 }
 
-function createMessage(author, text) {
+function createMessage(author, text) { // Core logic function to create a new message. This is called by both the HTTP API and the WebSocket API when a new message is created. It also takes care of notifying all clients about the new message.
   const newMessage = {
     id: nextId++,
     author,
@@ -70,14 +76,14 @@ function createMessage(author, text) {
   return newMessage;
 }
 
-function handleReaction(id, reaction) {
+function handleReaction(id, reaction) { // Core logic function to handle a like or dislike reaction. This is called by both the HTTP API and the WebSocket API when a reaction is received. It updates the message and notifies all clients about the update.
   const message = messages.find(m => m.id === id);
   if (!message) return null;
 
   if (reaction === "like") message.likes++;
   if (reaction === "dislike") message.dislikes++;
 
-  // 🔥 Update timestamp so long polling detects change
+  // Update timestamp so long polling detects change
   message.timestamp = Date.now();
 
   notifyLongPolling([message]);
@@ -186,8 +192,26 @@ wsServer.on("request", (request) => { // When a new WebSocket connection is requ
 });
 
 // ===============================
+// TEST EXPORTS
+// ===============================
+
+export function resetMessages() {
+  messages = [];
+  nextId = 1;
+}
+
+export { createMessage, handleReaction, messages };
+
+
+// ===============================
 // Start Server
 // ===============================
-server.listen(port, () => { // Start the HTTP server (which also starts the WebSocket server since it's using the same underlying server)
-  console.log(`🚀 Server running on http://localhost:${port}`);
-});
+
+if (process.env.NODE_ENV !== "test") {
+  server.listen(port, () => {
+    console.log(`🚀 Server running on http://localhost:${port}`);
+  });
+}
+
+
+
