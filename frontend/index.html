@@ -193,8 +193,10 @@
 </div>
 
 <script>
-const BACKEND_HTTP = "https://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
-const BACKEND_WS = "wss://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
+const BACKEND_HTTP = "http://localhost:3000";
+const BACKEND_WS = "ws://localhost:3000";
+// const BACKEND_HTTP = "https://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
+// const BACKEND_WS = "wss://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
 
 const chatDiv = document.getElementById("chat");
 const form = document.getElementById("message-form");
@@ -220,7 +222,7 @@ function renderMessage(msg) {
   // Create message element
   const div = document.createElement("div"); // create DOM element for the message
   div.className = "message";
-  div.id = `msg-${msg.id}`;
+  div.id = `msg-${msg.id}`; // SET ID 
 
   // Inject Author, Timestamp, Text and Reactions
   div.innerHTML = ` 
@@ -272,7 +274,7 @@ function startWebSocket() {
       }));
     },
     sendReaction: (type, id) => { // type is "like" or "dislike"
-      socket.send(JSON.stringify({ type, id }));
+      socket.send(JSON.stringify({ type, id })); 
     }
   };
 
@@ -301,7 +303,7 @@ function startLongPolling() {
   stopWebSocket(); // Stop WebSocket if active
 
   pollingActive = true;
-  lastTimestamp = null;
+  lastTimestamp = null; 
 
   transport = { // Define transport interface for Long Polling
     sendMessage: async (author, text) => { // Send message via HTTP POST to backend
@@ -319,7 +321,7 @@ function startLongPolling() {
   };
 
   async function poll() { // Polling function to fetch new messages from backend
-    if (!pollingActive) return;
+    if (!pollingActive) return; // Only polling if active, otherwise exit
     
     // Fetch messages since last timestamp to avoid duplicates
     try {
@@ -359,6 +361,7 @@ function stopPolling() { // Stop long polling by setting flag to false
 // ===============================
 // UI EVENTS
 // ===============================
+// CHOOSE TRANSPORT MODE
 connectBtn.addEventListener("click", () => { // Connect button clicked, switch transport mode
   chatDiv.innerHTML = "";                    // When users click connect, clear chat and start selected transport mode
 
@@ -369,9 +372,10 @@ connectBtn.addEventListener("click", () => { // Connect button clicked, switch t
   }
 });
 
+// SEND MESSAGE
 form.addEventListener("submit", (e) => { // sending a new message
   e.preventDefault(); // Prevent form submission
-  if (!transport) return;
+  if (!transport) return; // If no transport selected, do nothing
 
   const author = authorInput.value.trim();
   const text = messageInput.value.trim();
@@ -379,8 +383,10 @@ form.addEventListener("submit", (e) => { // sending a new message
 
   transport.sendMessage(author, text); // call transport sendmessage method to send message to backend
   messageInput.value = ""; // clear message input after sending
+  authorInput.value = ""; // clear author input after sending 
 });
 
+// REACTIONS (LIKE/DISLIKE BUTTONS)
 chatDiv.addEventListener("click", (e) => { // Handle like/dislike button clicks
   if (!transport) return;
 

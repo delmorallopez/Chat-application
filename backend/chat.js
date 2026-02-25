@@ -161,7 +161,7 @@ wsServer.on("request", (request) => { // When a new WebSocket connection is requ
   // When a message is received from the client, parse it and determine if it's a new chat message or a reaction (like/dislike). 
   // Then call the appropriate core logic function to handle it, which will also take care of notifying other clients.
   connection.on("message", (message) => { 
-    if (message.type !== "utf8") return;
+    if (message.type !== "utf8") return; // We only support UTF-8 text messages, ignore anything else (e.g. binary data).
 
     let data;
     try {
