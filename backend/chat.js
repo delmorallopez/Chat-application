@@ -43,8 +43,8 @@ const callbacksForNewMessages = []; // For long polling: when a new message arri
 // ===================================================
 
 function notifyLongPolling(newMessages) { // When a new message is created or updated, we need to notify all pending long polling requests so they can respond with the new data.
-  while (callbacksForNewMessages.length > 0) {
-    const cb = callbacksForNewMessages.pop();
+  while (callbacksForNewMessages.length > 0) { 
+    const cb = callbacksForNewMessages.pop(); 
     cb(newMessages);
   }
 }
