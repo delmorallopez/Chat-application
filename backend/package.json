@@ -7,6 +7,7 @@
     "start": "node chat.js",
     "test": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
+  
   "keywords": [],
   "author": "",
   "license": "ISC",
