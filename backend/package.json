@@ -4,10 +4,19 @@
   "main": "chat.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node chat.js",
+    "test": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "websocket": "^1.0.35"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0"
+  },
   "description": ""
 }
