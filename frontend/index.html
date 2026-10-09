@@ -197,10 +197,10 @@
 </div>
 
 <script>
-//const BACKEND_HTTP = "http://localhost:3000";
-//const BACKEND_WS = "ws://localhost:3000";
-const BACKEND_HTTP = "https://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
-const BACKEND_WS = "wss://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
+const BACKEND_HTTP = "https://yoly9k5o1uv81ympylbvpcuc.grads.hosting.cyf.academy";
+const BACKEND_WS = "wss://yoly9k5o1uv81ympylbvpcuc.grads.hosting.cyf.academy";
+//const BACKEND_HTTP = "https://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
+//const BACKEND_WS = "wss://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
 
 const chatDiv = document.getElementById("chat");
 const form = document.getElementById("message-form");
@@ -268,7 +268,6 @@ function startWebSocket() {
   stopPolling(); // Stop long polling if active
 
   socket = new WebSocket(BACKEND_WS); // Create new WebSocket connection
-
   transport = { // Define transport interface for WebSocket
     sendMessage: (author, text) => { // Send message as JSON string with type "message"
       socket.send(JSON.stringify({
@@ -330,7 +329,7 @@ function startLongPolling() {
     // Fetch messages since last timestamp to avoid duplicates
     try {
       const query = lastTimestamp ? `?since=${lastTimestamp}` : "";
-      const res = await fetch(`${BACKEND_HTTP}/messages${query}`);
+      const res = await fetch(`${BACKEND_HTTP}/messages${query}`); // Continuously fetching new messages from backend, passing last timestamp to only get new messages
       const messages = await res.json();
 
       messages.forEach(msg => {
