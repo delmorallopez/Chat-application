@@ -2,186 +2,125 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Chat App (WebSocket)</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat App (WebSockets)</title>
   <style>
-    body {
-      font-family: sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
-    }
-
-    h1 {
-      text-align: center;
-    }
-
-    #chat {
-      border: 1px solid #ccc;
-      padding: 10px;
-      height: 300px;
-      overflow-y: scroll;
-      margin-bottom: 20px;
-    }
-
-    .message {
-      padding: 5px;
-      border-bottom: 1px solid #eee;
-    }
-
-    .author {
-      font-weight: bold;
-    }
-
-    form {
-      display: flex;
-      gap: 5px;
-    }
-
-    input {
-      flex: 1;
-      padding: 8px;
-    }
-
-    button {
-      padding: 6px 10px;
-      margin-left: 5px;
-    }
+    body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 0 12px; }
+    h1 { text-align: center; }
+    #connection-status { text-align: center; margin-bottom: 14px; }
+    #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; margin-bottom: 20px; }
+    .message { padding: 8px 5px; border-bottom: 1px solid #eee; overflow-wrap: anywhere; }
+    .author { font-weight: bold; }
+    .message-text { white-space: pre-wrap; }
+    form { display: flex; gap: 5px; }
+    input { flex: 1; min-width: 0; padding: 8px; }
+    button { padding: 6px 10px; margin-left: 5px; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
   </style>
 </head>
-
 <body>
+  <h1>Chat App (WebSockets)</h1>
+  <p id="connection-status" role="status" aria-live="polite">Connecting...</p>
+  <div id="chat" aria-live="polite"></div>
+  <form id="message-form">
+    <input id="author-input" placeholder="Your name" required />
+    <input id="message-input" placeholder="Type a message..." required />
+    <button type="submit" id="send-btn" disabled>Send</button>
+  </form>
+  <script>
+    const WS_URL = "wss://yoly9k5o1uv81ympylbvpcuc.grads.hosting.cyf.academy";
+    const chatDiv = document.getElementById("chat");
+    const form = document.getElementById("message-form");
+    const authorInput = document.getElementById("author-input");
+    const messageInput = document.getElementById("message-input");
+    const sendBtn = document.getElementById("send-btn");
+    const connectionStatus = document.getElementById("connection-status");
 
-<h1>Chat App (WebSockets)</h1>
-
-<div id="chat"></div>
-
-<form id="message-form">
-  <input id="author-input" placeholder="Your name" required />
-  <input id="message-input" placeholder="Type a message..." required />
-  <button type="submit">Send</button>
-</form>
-
-<script>
-  // ===============================
-  // CONFIG
-  // ===============================
-  const WS_URL = "ws://localhost:3000";
-
-  // ===============================
-  // ELEMENTS
-  // ===============================
-  const chatDiv = document.getElementById("chat");
-  const form = document.getElementById("message-form");
-  const authorInput = document.getElementById("author-input");
-  const messageInput = document.getElementById("message-input");
-
-  // ===============================
-  // RENDER
-  // ===============================
-
-  // Render a new message
-  function renderMessage(msg) {
-    // Prevent duplicates
-    if (document.getElementById(`msg-${msg.id}`)) return;
-
-    const div = document.createElement("div");
-    div.className = "message";
-    div.id = `msg-${msg.id}`;
-
-    div.innerHTML = `
-      <span class="author">${msg.author}:</span> ${msg.text}<br>
-      👍 <span id="like-${msg.id}">${msg.likes}</span>
-      <button data-id="${msg.id}" class="like">Like</button>
-      👎 <span id="dislike-${msg.id}">${msg.dislikes}</span>
-      <button data-id="${msg.id}" class="dislike">Dislike</button>
-    `;
-
-    chatDiv.appendChild(div);
-    chatDiv.scrollTop = chatDiv.scrollHeight;
-  }
-
-  // updateMessage - update likes/dislikes
-  function updateMessage(msg) {
-    const likeSpan = document.getElementById(`like-${msg.id}`);
-    const dislikeSpan = document.getElementById(`dislike-${msg.id}`);
-
-    if (likeSpan) likeSpan.textContent = msg.likes;
-    if (dislikeSpan) dislikeSpan.textContent = msg.dislikes;
-  }
-
-  // ===============================
-  // WEBSOCKET
-  // ===============================
-  const socket = new WebSocket(WS_URL);
-  
-  socket.onopen = () => {
-    console.log("WebSocket connected");
-  };
-
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
-    // Initial messages
-    if (data.type === "init") {
-      data.messages.forEach(renderMessage);
+    function renderMessage(msg) {
+      if (document.getElementById(`msg-${msg.id}`)) { updateMessage(msg); return; }
+      const div = document.createElement("div");
+      div.className = "message";
+      div.id = `msg-${msg.id}`;
+      const author = document.createElement("span");
+      author.className = "author";
+      author.textContent = `${msg.author}: `;
+      const text = document.createElement("span");
+      text.className = "message-text";
+      text.textContent = msg.text;
+      const reactions = document.createElement("div");
+      const likeCount = document.createElement("span");
+      likeCount.id = `like-${msg.id}`;
+      likeCount.textContent = `👍 ${msg.likes}`;
+      const likeButton = document.createElement("button");
+      likeButton.type = "button";
+      likeButton.className = "like";
+      likeButton.dataset.id = msg.id;
+      likeButton.textContent = "Like";
+      const dislikeCount = document.createElement("span");
+      dislikeCount.id = `dislike-${msg.id}`;
+      dislikeCount.textContent = `👎 ${msg.dislikes}`;
+      const dislikeButton = document.createElement("button");
+      dislikeButton.type = "button";
+      dislikeButton.className = "dislike";
+      dislikeButton.dataset.id = msg.id;
+      dislikeButton.textContent = "Dislike";
+      reactions.append(likeCount, likeButton, dislikeCount, dislikeButton);
+      div.append(author, text, reactions);
+      chatDiv.appendChild(div);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
     }
 
-    // New message
-    if (data.type === "message") {
-      renderMessage(data.message);
+    function updateMessage(msg) {
+      const like = document.getElementById(`like-${msg.id}`);
+      const dislike = document.getElementById(`dislike-${msg.id}`);
+      if (like) like.textContent = `👍 ${msg.likes}`;
+      if (dislike) dislike.textContent = `👎 ${msg.dislikes}`;
     }
 
-    // Like / Dislike update
-    if (data.type === "update") {
-      updateMessage(data.message);
-    }
-  };
+    const socket = new WebSocket(WS_URL); // Automatically connect on page load.
+    socket.onopen = () => {
+      connectionStatus.textContent = "● Connected (WebSocket)";
+      sendBtn.disabled = false;
+    };
+    socket.onmessage = event => {
+      let data;
+      try { data = JSON.parse(event.data); } catch (error) { console.error(error); return; }
+      if (data.type === "init") {
+        chatDiv.innerHTML = "";
+        data.messages.forEach(renderMessage);
+      } else if (data.type === "message") {
+        renderMessage(data.message);
+      } else if (data.type === "update") {
+        updateMessage(data.message);
+      }
+    };
+    socket.onerror = error => {
+      console.error("WebSocket error:", error);
+      connectionStatus.textContent = "Connection error — refresh to retry";
+      sendBtn.disabled = true;
+    };
+    socket.onclose = () => {
+      connectionStatus.textContent = "Disconnected — refresh to retry";
+      sendBtn.disabled = true;
+    };
 
-  socket.onerror = (err) => {
-    console.error("❌ WebSocket error", err);
-  };
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      if (socket.readyState !== WebSocket.OPEN) return;
+      const author = authorInput.value.trim();
+      const text = messageInput.value.trim();
+      if (!author || !text) return;
+      socket.send(JSON.stringify({ type: "message", author, text }));
+      messageInput.value = "";
+    });
 
-  // ===============================
-  // SEND MESSAGE (WebSocket)
-  // ===============================
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const author = authorInput.value.trim();
-    const text = messageInput.value.trim();
-    if (!author || !text) return;
-
-    socket.send(JSON.stringify({
-      type: "message",
-      author,
-      text
-    }));
-
-    messageInput.value = "";
-  });
-
-  // ===============================
-  // LIKE / DISLIKE (WebSocket)
-  // ===============================
-  chatDiv.addEventListener("click", (e) => {
-    const id = Number(e.target.dataset.id);
-    if (!id) return;
-
-    if (e.target.classList.contains("like")) {
-      socket.send(JSON.stringify({
-        type: "like",
-        id
-      }));
-    }
-
-    if (e.target.classList.contains("dislike")) {
-      socket.send(JSON.stringify({
-        type: "dislike",
-        id
-      }));
-    }
-  });
-</script>
-
+    chatDiv.addEventListener("click", event => {
+      const button = event.target.closest("button[data-id]");
+      if (!button || socket.readyState !== WebSocket.OPEN) return;
+      const id = Number(button.dataset.id);
+      const type = button.classList.contains("like") ? "like" : "dislike";
+      socket.send(JSON.stringify({ type, id }));
+    });
+  </script>
 </body>
 </html>

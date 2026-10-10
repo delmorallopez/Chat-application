@@ -2,423 +2,280 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Real Time Chat</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-Time Chat</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .chat-container {
-     width: 98%;
-      max-width: 900px;
-      height: 95vh;
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(20px);
-      border-radius: 20px;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-      overflow: hidden;
-}
-
-    header {
-      padding: 20px;
-      background: rgba(255,255,255,0.2);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: white;
-    }
-
-    header h1 {
-      font-size: 20px;
-    }
-
-    #controls {
-      display: flex;
-      gap: 10px;
-    }
-
-    select, button {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    select {
-      background: white;
-    }
-
-    button {
-      background: #4CAF50;
-      color: white;
-      transition: 0.3s;
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-      opacity: 0.9;
-    }
-
-    #chat {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .message {
-      background: white;
-      padding: 12px 15px;
-      border-radius: 15px;
-      max-width: 75%;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      animation: fadeIn 0.2s ease-in-out;
-    }
-
-    .author {
-      font-weight: bold;
-      font-size: 14px;
-      margin-bottom: 4px;
-      color: #333;
-    }
-
-    .text {
-      margin-bottom: 8px;
-    }
-
-    .reactions {
-      font-size: 13px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .reaction-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      transition: 0.2s;
-    }
-
-    .reaction-btn:hover {
-      transform: scale(1.2);
-    }
-
-    form {
-      display: flex;
-      padding: 15px;
-      gap: 10px;
-      background: rgba(255,255,255,0.2);
-    }
-
-    input {
-      flex: 1;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      outline: none;
-      font-size: 14px;
-    }
-
-    form button {
-      background: #2196F3;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    #chat::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    #chat::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.4);
-      border-radius: 10px;
-    }
-
-    .timestamp {
-      font-size: 12px;
-      color: #777;
-      margin-left: 8px;
-      font-weight: normal;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+    .chat-container { width: 98%; max-width: 900px; height: 95vh; background: rgba(255,255,255,.15); backdrop-filter: blur(20px); border-radius: 20px; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0,0,0,.2); overflow: hidden; }
+    header { padding: 20px; background: rgba(255,255,255,.2); display: flex; justify-content: space-between; align-items: center; gap: 12px; color: white; }
+    header h1 { font-size: 20px; }
+    #connection-status { display: block; font-size: 13px; margin-top: 6px; font-weight: 500; }
+    #controls { display: flex; gap: 10px; align-items: center; }
+    select, button { padding: 8px 12px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; }
+    select { background: white; }
+    button { background: #4CAF50; color: white; transition: .2s; }
+    button:not(:disabled):hover { opacity: .9; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    #chat { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .message { background: white; padding: 12px 15px; border-radius: 15px; max-width: 75%; overflow-wrap: anywhere; box-shadow: 0 5px 15px rgba(0,0,0,.1); animation: fadeIn .2s ease-in-out; }
+    .author { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #333; }
+    .text { margin-bottom: 8px; white-space: pre-wrap; }
+    .reactions { font-size: 13px; display: flex; gap: 10px; align-items: center; }
+    .reaction-btn { background: none; color: #333; border: none; cursor: pointer; font-size: 14px; padding: 3px; }
+    form { display: flex; padding: 15px; gap: 10px; background: rgba(255,255,255,.2); }
+    input { flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: none; outline: none; font-size: 14px; }
+    form button { background: #2196F3; }
+    .timestamp { font-size: 12px; color: #777; margin-left: 8px; font-weight: normal; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 600px) { header { flex-wrap: wrap; padding: 14px; } form { flex-wrap: wrap; } .message { max-width: 95%; } }
   </style>
 </head>
-
 <body>
+  <div class="chat-container">
+    <header>
+      <h1>💬 Real-Time Chat <span id="connection-status" role="status" aria-live="polite">Connecting...</span></h1>
+      <div id="controls">
+        <select id="mode-select" aria-label="Connection method">
+          <option value="ws">WebSocket</option>
+          <option value="poll">Long Polling</option>
+        </select>
+        <button id="connect-btn" type="button">Reconnect</button>
+      </div>
+    </header>
+    <div id="chat" aria-live="polite"></div>
+    <form id="message-form">
+      <input id="author-input" placeholder="Your name" required />
+      <input id="message-input" placeholder="Type a message..." required />
+      <button type="submit" id="send-btn" disabled>Send</button>
+    </form>
+  </div>
+  <script>
+    // The backend stays on CYF Coolify, even if the frontend is hosted on Netlify.
+    const BACKEND_HTTP = "https://yoly9k5o1uv81ympylbvpcuc.grads.hosting.cyf.academy";
+    const BACKEND_WS = "wss://yoly9k5o1uv81ympylbvpcuc.grads.hosting.cyf.academy";
 
-<div class="chat-container">
-  <header>
-    <h1>
-      💬 Real-Time Chat 
-      <span style="font-size:18px; font-weight:600; opacity:0.8;">
-        (Please choose a connection before starting)
-      </span>
-    </h1>
-    <div id="controls">
-      <select id="mode-select">
-        <option value="ws">WebSocket</option>
-        <option value="poll">Long Polling</option>
-      </select>
-      <button id="connect-btn">Connect</button>
-    </div>
-  </header>
+    const chatDiv = document.getElementById("chat");
+    const form = document.getElementById("message-form");
+    const authorInput = document.getElementById("author-input");
+    const messageInput = document.getElementById("message-input");
+    const modeSelect = document.getElementById("mode-select");
+    const connectBtn = document.getElementById("connect-btn");
+    const sendBtn = document.getElementById("send-btn");
+    const connectionStatus = document.getElementById("connection-status");
 
-  <div id="chat"></div>
+    let transport = null;
+    let socket = null;
+    let pollController = null;
+    let generation = 0; // Ignore responses from a previous connection.
+    let connected = false;
 
-  <form id="message-form">
-    <input id="author-input" placeholder="Your name" required />
-    <input id="message-input" placeholder="Type a message..." required />
-    <button type="submit">Send</button>
-  </form>
-
-</div>
-
-<script>
-const BACKEND_HTTP = "https://yoly9k5o1uv81ympylbvpcuc.grads.hosting.cyf.academy";
-const BACKEND_WS = "wss://yoly9k5o1uv81ympylbvpcuc.grads.hosting.cyf.academy";
-//const BACKEND_HTTP = "https://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
-//const BACKEND_WS = "wss://mg4044gsg4cgkw008ggsc84g.hosting.codeyourfuture.io";
-
-const chatDiv = document.getElementById("chat");
-const form = document.getElementById("message-form");
-const authorInput = document.getElementById("author-input");
-const messageInput = document.getElementById("message-input");
-const modeSelect = document.getElementById("mode-select");
-const connectBtn = document.getElementById("connect-btn");
-
-let transport = null; // Transport layer (WebSocket or Long Polling)
-let socket = null; // WebSocket instance
-let pollingActive = false; // Prevent infinite polling loops
-let lastTimestamp = null; // avoid duplicate messages in long polling
-
-// ===============================
-// RENDER
-// ===============================
-function renderMessage(msg) {
-  if (document.getElementById(`msg-${msg.id}`)) { // If message already exists, just update reactions
-    updateMessage(msg); 
-    return;
-  }
-  
-  // Create message element
-  const div = document.createElement("div"); // create DOM element for the message
-  div.className = "message";
-  div.id = `msg-${msg.id}`; // SET ID 
-
-  // Inject Author, Timestamp, Text and Reactions
-  div.innerHTML = ` 
-    <div class="author"> 
-      ${msg.author}
-      <span class="timestamp">${formatTime(msg.timestamp)}</span>
-    </div>
-
-    <div class="text">${msg.text}</div>
-
-    <div class="reactions">
-      👍 <span id="like-${msg.id}">${msg.likes}</span>
-      <button data-id="${msg.id}" class="reaction-btn like">Like</button>
-      👎 <span id="dislike-${msg.id}">${msg.dislikes}</span>
-      <button data-id="${msg.id}" class="reaction-btn dislike">Dislike</button>
-    </div>
-  `;
-
-
-
-  // Append to chat and scroll to bottom
-  chatDiv.appendChild(div);
-  chatDiv.scrollTop = chatDiv.scrollHeight;
-}
-
-// update likes/dislikes spans ahd update textContent with new values
-function updateMessage(msg) {
-  const likeSpan = document.getElementById(`like-${msg.id}`);
-  const dislikeSpan = document.getElementById(`dislike-${msg.id}`);
-
-  if (likeSpan) likeSpan.textContent = msg.likes;
-  if (dislikeSpan) dislikeSpan.textContent = msg.dislikes;
-}
-
-// ===============================
-// WEBSOCKET MODE
-// ===============================
-function startWebSocket() {
-  stopPolling(); // Stop long polling if active
-
-  socket = new WebSocket(BACKEND_WS); // Create new WebSocket connection
-  transport = { // Define transport interface for WebSocket
-    sendMessage: (author, text) => { // Send message as JSON string with type "message"
-      socket.send(JSON.stringify({
-        type: "message",
-        author,
-        text
-      }));
-    },
-    sendReaction: (type, id) => { // type is "like" or "dislike"
-      socket.send(JSON.stringify({ type, id })); 
+    function setConnectionStatus(status, ready) {
+      connected = ready;
+      connectionStatus.textContent = status;
+      sendBtn.disabled = !ready;
     }
-  };
 
-  socket.onmessage = (event) => { // Handle incoming messages from server
-    const data = JSON.parse(event.data); // Server sends different types of messages: "init" for initial load, "message" for new messages, "update" for reactions updates
+    function formatTime(timestamp) {
+      return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
 
-    if (data.type === "init") { // Clear chat and render initial messages
+    function renderMessage(msg) {
+      if (document.getElementById(`msg-${msg.id}`)) {
+        updateMessage(msg);
+        return;
+      }
+      const div = document.createElement("div");
+      div.className = "message";
+      div.id = `msg-${msg.id}`;
+
+      const author = document.createElement("div");
+      author.className = "author";
+      author.textContent = msg.author;
+      const time = document.createElement("span");
+      time.className = "timestamp";
+      time.textContent = formatTime(msg.timestamp);
+      author.appendChild(time);
+
+      const text = document.createElement("div");
+      text.className = "text";
+      text.textContent = msg.text;
+
+      const reactions = document.createElement("div");
+      reactions.className = "reactions";
+      const likeCount = document.createElement("span");
+      likeCount.id = `like-${msg.id}`;
+      likeCount.textContent = `👍 ${msg.likes}`;
+      const likeBtn = document.createElement("button");
+      likeBtn.type = "button";
+      likeBtn.className = "reaction-btn like";
+      likeBtn.dataset.id = msg.id;
+      likeBtn.textContent = "Like";
+      const dislikeCount = document.createElement("span");
+      dislikeCount.id = `dislike-${msg.id}`;
+      dislikeCount.textContent = `👎 ${msg.dislikes}`;
+      const dislikeBtn = document.createElement("button");
+      dislikeBtn.type = "button";
+      dislikeBtn.className = "reaction-btn dislike";
+      dislikeBtn.dataset.id = msg.id;
+      dislikeBtn.textContent = "Dislike";
+      reactions.append(likeCount, likeBtn, dislikeCount, dislikeBtn);
+      div.append(author, text, reactions);
+      chatDiv.appendChild(div);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+
+    function updateMessage(msg) {
+      const like = document.getElementById(`like-${msg.id}`);
+      const dislike = document.getElementById(`dislike-${msg.id}`);
+      if (like) like.textContent = `👍 ${msg.likes}`;
+      if (dislike) dislike.textContent = `👎 ${msg.dislikes}`;
+    }
+
+    function stopConnections() {
+      generation++;
+      transport = null;
+      setConnectionStatus("Connecting...", false);
+      if (pollController) {
+        pollController.abort();
+        pollController = null;
+      }
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
+    }
+
+    function startWebSocket() {
+      stopConnections();
+      const currentGeneration = generation;
+      const ws = new WebSocket(BACKEND_WS);
+      socket = ws;
+
+      ws.onopen = () => {
+        if (generation !== currentGeneration) return;
+        setConnectionStatus("● Connected (WebSocket)", true);
+      };
+      ws.onmessage = event => {
+        if (generation !== currentGeneration) return;
+        let data;
+        try { data = JSON.parse(event.data); } catch (error) { console.error(error); return; }
+        if (data.type === "init") {
+          chatDiv.innerHTML = "";
+          data.messages.forEach(renderMessage);
+        } else if (data.type === "message") {
+          renderMessage(data.message);
+        } else if (data.type === "update") {
+          updateMessage(data.message);
+        }
+      };
+      ws.onerror = error => {
+        if (generation !== currentGeneration) return;
+        console.error("WebSocket error:", error);
+        setConnectionStatus("Connection error — click Reconnect", false);
+      };
+      ws.onclose = () => {
+        if (generation !== currentGeneration) return;
+        setConnectionStatus("Disconnected — click Reconnect", false);
+      };
+      transport = {
+        sendMessage(author, text) {
+          if (ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not connected");
+          ws.send(JSON.stringify({ type: "message", author, text }));
+        },
+        sendReaction(type, id) {
+          if (ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not connected");
+          ws.send(JSON.stringify({ type, id }));
+        }
+      };
+    }
+
+    function startLongPolling() {
+      stopConnections();
+      const currentGeneration = generation;
+      let lastTimestamp = null;
+      // Controller is replaced for each long-poll request.
+      transport = {
+        async sendMessage(author, text) {
+          const response = await fetch(`${BACKEND_HTTP}/messages`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ author, text })
+          });
+          if (!response.ok) throw new Error(`Send failed: ${response.status}`);
+        },
+        async sendReaction(type, id) {
+          const response = await fetch(`${BACKEND_HTTP}/messages/${id}/${type}`, { method: "POST" });
+          if (!response.ok) throw new Error(`Reaction failed: ${response.status}`);
+        }
+      };
+
+      async function poll() {
+        while (generation === currentGeneration) {
+          const controller = new AbortController();
+          pollController = controller;
+          try {
+            const query = lastTimestamp === null ? "" : `?since=${lastTimestamp}`;
+            const response = await fetch(`${BACKEND_HTTP}/messages${query}`, { signal: controller.signal });
+            if (!response.ok) throw new Error(`Polling failed: ${response.status}`);
+            const messages = await response.json();
+            if (generation !== currentGeneration) return;
+            setConnectionStatus("● Connected (Long Polling)", true);
+            for (const msg of messages) {
+              renderMessage(msg);
+              lastTimestamp = Math.max(lastTimestamp ?? 0, msg.timestamp);
+            }
+            // Backend returns immediately when history exists; avoid a tight loop.
+            if (lastTimestamp === null) await new Promise(resolve => setTimeout(resolve, 250));
+          } catch (error) {
+            if (generation !== currentGeneration || error.name === "AbortError") return;
+            console.error("Long Polling error:", error);
+            setConnectionStatus("Connection error — retrying...", false);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          } finally {
+            if (pollController === controller) pollController = null;
+          }
+        }
+      }
+      poll();
+    }
+
+    function connect() {
       chatDiv.innerHTML = "";
-      data.messages.forEach(renderMessage);
-    }
- 
-    if (data.type === "message") { // Render new message
-      renderMessage(data.message);
+      if (modeSelect.value === "ws") startWebSocket();
+      else startLongPolling();
     }
 
-    if (data.type === "update") { // Update likes/dislikes for a message
-      updateMessage(data.message);
-    }
-  };
-}
+    connectBtn.addEventListener("click", connect);
+    modeSelect.addEventListener("change", connect);
 
-// ===============================
-// LONG POLLING MODE
-// ===============================
-function startLongPolling() {
-  stopWebSocket(); // Stop WebSocket if active
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!connected || !transport) return;
+      const author = authorInput.value.trim();
+      const text = messageInput.value.trim();
+      if (!author || !text) return;
+      try {
+        await transport.sendMessage(author, text);
+        messageInput.value = "";
+      } catch (error) {
+        console.error("Message send error:", error);
+        setConnectionStatus("Send failed — reconnect", false);
+      }
+    });
 
-  pollingActive = true;
-  lastTimestamp = null; 
+    chatDiv.addEventListener("click", async event => {
+      const button = event.target.closest("button[data-id]");
+      if (!button || !connected || !transport) return;
+      const type = button.classList.contains("like") ? "like" : "dislike";
+      try {
+        await transport.sendReaction(type, Number(button.dataset.id));
+      } catch (error) {
+        console.error("Reaction error:", error);
+      }
+    });
 
-  transport = { // Define transport interface for Long Polling
-    sendMessage: async (author, text) => { // Send message via HTTP POST to backend
-      await fetch(`${BACKEND_HTTP}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ author, text })
-      });
-    },
-    sendReaction: async (type, id) => {
-      await fetch(`${BACKEND_HTTP}/messages/${id}/${type}`, {
-        method: "POST"
-      });
-    }
-  };
-
-  async function poll() { // Polling function to fetch new messages from backend
-    if (!pollingActive) return; // Only polling if active, otherwise exit
-    
-    // Fetch messages since last timestamp to avoid duplicates
-    try {
-      const query = lastTimestamp ? `?since=${lastTimestamp}` : "";
-      const res = await fetch(`${BACKEND_HTTP}/messages${query}`); // Continuously fetching new messages from backend, passing last timestamp to only get new messages
-      const messages = await res.json();
-
-      messages.forEach(msg => {
-        renderMessage(msg);
-        lastTimestamp = msg.timestamp;
-      });
-
-    } catch (err) {
-      console.error(err);
-    }
-
-    poll(); // Continue polling immediately after receiving response
-  }
-
-  poll();
-}
-
-// ===============================
-// STOP FUNCTIONS
-// ===============================
-function stopWebSocket() { // Close WebSocket connection if it exists
-  if (socket) {
-    socket.close();
-    socket = null;
-  }
-}
-
-function stopPolling() { // Stop long polling by setting flag to false
-  pollingActive = false;
-}
-
-// ===============================
-// UI EVENTS
-// ===============================
-// CHOOSE TRANSPORT MODE
-connectBtn.addEventListener("click", () => { // Connect button clicked, switch transport mode
-  chatDiv.innerHTML = "";                    // When users click connect, clear chat and start selected transport mode
-
-  if (modeSelect.value === "ws") { // 
-    startWebSocket();
-  } else {
-    startLongPolling(); // Start long polling
-  }
-});
-
-// SEND MESSAGE
-form.addEventListener("submit", (e) => { // sending a new message
-  e.preventDefault(); // Prevent form submission
-  if (!transport) return; // If no transport selected, do nothing
-
-  const author = authorInput.value.trim();
-  const text = messageInput.value.trim();
-  if (!author || !text) return;
-
-  transport.sendMessage(author, text); // call transport sendmessage method to send message to backend
-  messageInput.value = ""; // clear message input after sending
-  authorInput.value = ""; // clear author input after sending 
-});
-
-// REACTIONS (LIKE/DISLIKE BUTTONS)
-chatDiv.addEventListener("click", (e) => { // Handle like/dislike button clicks
-  if (!transport) return;
-
-  const id = Number(e.target.dataset.id); // Get message ID from data attribute
-  if (id === undefined) return;
-
-  if (e.target.classList.contains("like")) { // Like button clicked, call transport sendReaction with type "like"
-    transport.sendReaction("like", id);
-  }
-
-  if (e.target.classList.contains("dislike")) { // Dislike button clicked, call transport sendReaction with type "dislike"
-    transport.sendReaction("dislike", id);
-  }
-});
-
-// ===============================
-// ADD TIMESTAMP TO MESSAGES
-// ===============================
-
-function formatTime(timestamp) { // Convert timestamp to human-readable time format
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-
-</script>
-
+    // WebSocket is the default connection; users can switch to Long Polling.
+    connect();
+  </script>
 </body>
 </html>
